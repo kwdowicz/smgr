@@ -2,11 +2,13 @@ package smgr
 
 type State struct{
 	Update func()
-	NextStates []*State
+	OnEnter func()
+	OnExit func()
+	nextStates []*State
 }
 
 func (s *State) AddNextState(ns *State) {
-	s.NextStates = append(s.NextStates, ns)
+	s.nextStates = append(s.nextStates, ns)
 }
 
 type StateManager struct {
@@ -18,9 +20,15 @@ func (sm *StateManager) Update() {
 }
 
 func (sm *StateManager) NextState(ns *State) bool {
-	for _, s := range sm.CurrentState.NextStates {
+	for _, s := range sm.CurrentState.nextStates {
 		if ns == s {
+			if sm.CurrentState.OnExit != nil {
+				sm.CurrentState.OnExit()
+			}
 			sm.CurrentState = ns	
+			if sm.CurrentState.OnEnter != nil {
+				sm.CurrentState.OnEnter()
+			}
 			return true
 		}
 	}
@@ -33,3 +41,4 @@ func NewStateManager(initialState *State) StateManager {
 	}
 	return sm
 }
+
