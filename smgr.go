@@ -6,7 +6,7 @@ type State struct{
 	OnExit func()
 	nextStates []*State
 	Data map[string]any
-	previousState *State
+	PreviousState *State
 }
 
 func (s *State) AddNextState(ns *State) {
@@ -37,7 +37,7 @@ func (sm *StateManager) NextState(ns *State) bool {
 				sm.CurrentState.OnExit()
 			}
 			sm.CurrentState = ns	
-			sm.CurrentState.previousState = holdCurrentState 
+			sm.CurrentState.PreviousState = holdCurrentState 
 			if sm.CurrentState.OnEnter != nil {
 				sm.CurrentState.OnEnter()
 			}

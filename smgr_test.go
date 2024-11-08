@@ -227,7 +227,7 @@ func TestPreviousStateDataAccess(t *testing.T) {
 	// Set up OnEnter for the target state to check access to previous state's Data
 	dataAccessibleInTargetState := false
 	targetState.OnEnter = func() {
-		if targetState.previousState != nil && targetState.previousState.Data[key] == value {
+		if targetState.PreviousState != nil && targetState.PreviousState.Data[key] == value {
 			dataAccessibleInTargetState = true
 		}
 	}
