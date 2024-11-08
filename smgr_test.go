@@ -35,7 +35,7 @@ func TestStateManager_Update(t *testing.T) {
 }
 
 // TestStateManager_Update checks that Update calls the correct state's Update function.
-func TestStateManager_UpdateFail(t *testing.T) {
+func TestStateManager_UpdateEmpty(t *testing.T) {
 	s1 := &State{}
 	sm := NewStateManager(s1)
 	sm.Update()
