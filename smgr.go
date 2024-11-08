@@ -16,7 +16,9 @@ type StateManager struct {
 }
 
 func (sm *StateManager) Update() {
-	sm.CurrentState.Update()
+	if sm.CurrentState != nil && sm.CurrentState.Update != nil {
+		sm.CurrentState.Update()
+	}
 }
 
 func (sm *StateManager) NextState(ns *State) bool {
