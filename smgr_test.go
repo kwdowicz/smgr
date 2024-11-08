@@ -148,3 +148,106 @@ func TestOnExit(t *testing.T) {
 		t.Error("Expected OnExit to be called when transitioning to targetState")
 	}
 }
+
+func TestStateDataLifecycle(t *testing.T) {
+	// Create initial and target states
+	initialState := NewState()
+	targetState := NewState()
+
+	// Define a data key and value to be stored
+	const key = "testKey"
+	const value = "testValue"
+
+	// Set up OnEnter for initialState to initialize Data
+	initialState.OnEnter = func() {
+		initialState.Data[key] = value
+	}
+
+	// Define Update for initialState to check if Data contains expected value
+	dataCheckedInUpdate := false
+	initialState.Update = func() {
+		if initialState.Data[key] == value {
+			dataCheckedInUpdate = true
+		}
+	}
+
+	// Define OnExit for initialState to check if Data still contains the value
+	dataCheckedInExit := false
+	initialState.OnExit = func() {
+		if initialState.Data[key] == value {
+			dataCheckedInExit = true
+		}
+	}
+
+	// Set up state transition
+	initialState.AddNextState(targetState)
+
+	// Initialize the StateManager with initialState
+	sm := NewStateManager(initialState)
+
+	// Call OnEnter by transitioning to the initial state
+	sm.CurrentState.OnEnter()
+
+	// Ensure that the data is correctly initialized in OnEnter
+	if initialState.Data[key] != value {
+		t.Errorf("Expected Data[%s] to be %s in OnEnter, got %v", key, value, initialState.Data[key])
+	}
+
+	// Call Update and verify that Data is accessible
+	sm.Update()
+	if !dataCheckedInUpdate {
+		t.Error("Expected Data to be accessible in Update")
+	}
+
+	// Transition to targetState, which triggers OnExit
+	if !sm.NextState(targetState) {
+		t.Error("Expected NextState to succeed for a valid transition")
+	}
+
+	// Verify that Data was accessible in OnExit
+	if !dataCheckedInExit {
+		t.Error("Expected Data to be accessible in OnExit")
+	}
+}
+
+func TestPreviousStateDataAccess(t *testing.T) {
+	// Create initial and target states
+	initialState := NewState()
+	targetState := NewState()
+
+	// Define a data key and value to be stored in the initial state
+	const key = "testKey"
+	const value = "testValue"
+
+	// Set up OnEnter for the initial state to initialize Data
+	initialState.OnEnter = func() {
+		initialState.Data[key] = value
+	}
+
+	// Set up OnEnter for the target state to check access to previous state's Data
+	dataAccessibleInTargetState := false
+	targetState.OnEnter = func() {
+		if targetState.previousState != nil && targetState.previousState.Data[key] == value {
+			dataAccessibleInTargetState = true
+		}
+	}
+
+	// Set up a transition from initialState to targetState
+	initialState.AddNextState(targetState)
+
+	// Initialize the StateManager with initialState
+	sm := NewStateManager(initialState)
+
+	// Trigger OnEnter for initialState
+	sm.CurrentState.OnEnter()
+
+	// Transition to targetState
+	if !sm.NextState(targetState) {
+		t.Error("Expected NextState to succeed for a valid transition")
+	}
+
+	// Verify that the target state has access to the previous state's Data
+	if !dataAccessibleInTargetState {
+		t.Error("Expected target state to have access to previous state's Data")
+	}
+}

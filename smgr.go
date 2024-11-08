@@ -5,10 +5,18 @@ type State struct{
 	OnEnter func()
 	OnExit func()
 	nextStates []*State
+	Data map[string]any
+	previousState *State
 }
 
 func (s *State) AddNextState(ns *State) {
 	s.nextStates = append(s.nextStates, ns)
+}
+
+func NewState() *State {
+	s := &State{}
+	s.Data = make(map[string]any)
+	return s
 }
 
 type StateManager struct {
@@ -24,10 +32,12 @@ func (sm *StateManager) Update() {
 func (sm *StateManager) NextState(ns *State) bool {
 	for _, s := range sm.CurrentState.nextStates {
 		if ns == s {
+			holdCurrentState := sm.CurrentState
 			if sm.CurrentState.OnExit != nil {
 				sm.CurrentState.OnExit()
 			}
 			sm.CurrentState = ns	
+			sm.CurrentState.previousState = holdCurrentState 
 			if sm.CurrentState.OnEnter != nil {
 				sm.CurrentState.OnEnter()
 			}
