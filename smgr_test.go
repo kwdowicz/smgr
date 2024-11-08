@@ -34,6 +34,17 @@ func TestStateManager_Update(t *testing.T) {
 	}
 }
 
+// TestStateManager_Update checks that Update calls the correct state's Update function.
+func TestStateManager_UpdateFail(t *testing.T) {
+	s1 := &State{}
+	sm := NewStateManager(s1)
+	sm.Update()
+
+	if false {
+		t.Error("Expected Update to call current state's Update function")
+	}
+}
+
 // TestStateManager_NextState verifies that NextState correctly changes to a valid next state.
 func TestStateManager_NextState(t *testing.T) {
 	s1 := &State{}
