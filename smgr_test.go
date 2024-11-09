@@ -1,253 +1,104 @@
-package smgr 
+package smgr_test
 
 import (
 	"testing"
+	"github.com/stretchr/testify/assert"
+	"github.com/kwdowicz/smgr"
 )
 
-// TestAddNextState verifies that AddNextState adds the correct next state.
-func TestAddNextState(t *testing.T) {
-	s1 := &State{}
-	s2 := &State{}
-	s1.AddNextState(s2)
+func TestState_OnEnter(t *testing.T) {
+	var called bool
+	state := smgr.NewState(func() { called = true }, nil, nil)
 
-	if len(s1.nextStates) != 1 {
-		t.Errorf("Expected 1 next state, got %d", len(s1.nextStates))
-	}
-	if s1.nextStates[0] != s2 {
-		t.Errorf("Expected next state to be s2")
-	}
+	state.OnEnter()
+
+	assert.True(t, called, "OnEnter should call the provided onEnter function")
 }
 
-// TestStateManager_Update checks that Update calls the correct state's Update function.
+func TestState_Update(t *testing.T) {
+	var called bool
+	state := smgr.NewState(nil, func() { called = true }, nil)
+
+	state.Update()
+
+	assert.True(t, called, "Update should call the provided update function")
+}
+
+func TestState_OnExit(t *testing.T) {
+	var called bool
+	state := smgr.NewState(nil, nil, func() { called = true })
+
+	state.OnExit()
+
+	assert.True(t, called, "OnExit should call the provided onExit function")
+}
+
+func TestState_AddNextState(t *testing.T) {
+	stateA := smgr.NewState(nil, nil, nil)
+	stateB := smgr.NewState(nil, nil, nil)
+
+	stateA.AddNextState(stateB)
+
+	nextStates := stateA.GetNextStates()
+	assert.Len(t, nextStates, 1, "NextStates should contain one state")
+	assert.Equal(t, stateB, nextStates[0], "NextState should be equal to the added state")
+}
+
+func TestState_SetGetPreviousState(t *testing.T) {
+	stateA := smgr.NewState(nil, nil, nil)
+	stateB := smgr.NewState(nil, nil, nil)
+
+	stateB.SetPreviousState(stateA)
+
+	assert.Equal(t, stateA, stateB.GetPreviousState(), "PreviousState should be equal to the set state")
+}
+
+func TestState_GetData(t *testing.T) {
+	state := smgr.NewState(nil, nil, nil)
+	data := state.GetData()
+	assert.NotNil(t, data, "GetData should return a non-nil map")
+
+	data["key"] = "value"
+	assert.Equal(t, "value", state.GetData()["key"], "Data map should persist values correctly")
+}
+
 func TestStateManager_Update(t *testing.T) {
-	updated := false
-	s1 := &State{
-		Update: func() {
-			updated = true
-		},
-	}
-	sm := NewStateManager(s1)
-	sm.Update()
+	var called bool
+	state := smgr.NewState(nil, func() { called = true }, nil)
+	stateManager := smgr.NewStateManager(state)
 
-	if !updated {
-		t.Error("Expected Update to call current state's Update function")
-	}
+	stateManager.Update()
+
+	assert.True(t, called, "Update should call the current state's Update function")
 }
 
-// TestStateManager_Update checks that Update calls the correct state's Update function.
-func TestStateManager_UpdateEmpty(t *testing.T) {
-	s1 := &State{}
-	sm := NewStateManager(s1)
-	sm.Update()
+func TestStateManager_NextState_ValidTransition(t *testing.T) {
+	stateA := smgr.NewState(nil, nil, nil)
+	stateB := smgr.NewState(nil, nil, nil)
+	stateA.AddNextState(stateB)
+	stateManager := smgr.NewStateManager(stateA)
 
-	if false {
-		t.Error("Expected Update to call current state's Update function")
-	}
+	transitioned := stateManager.NextState(stateB)
+
+	assert.True(t, transitioned, "NextState should return true for a valid transition")
+	assert.Equal(t, stateB, stateManager.GetCurrentState(), "Current state should be updated to the next state")
+	assert.Equal(t, stateA, stateB.GetPreviousState(), "Previous state of the new state should be set correctly")
 }
 
-// TestStateManager_NextState verifies that NextState correctly changes to a valid next state.
-func TestStateManager_NextState(t *testing.T) {
-	s1 := &State{}
-	s2 := &State{}
-	s1.AddNextState(s2)
+func TestStateManager_NextState_InvalidTransition(t *testing.T) {
+	stateA := smgr.NewState(nil, nil, nil)
+	stateB := smgr.NewState(nil, nil, nil)
+	stateManager := smgr.NewStateManager(stateA)
 
-	sm := NewStateManager(s1)
-	if !sm.NextState(s2) {
-		t.Error("Expected NextState to return true for valid transition")
-	}
-	if sm.CurrentState != s2 {
-		t.Error("Expected current state to be s2")
-	}
+	transitioned := stateManager.NextState(stateB)
 
-	// Test invalid transition
-	s3 := &State{}
-	if sm.NextState(s3) {
-		t.Error("Expected NextState to return false for invalid transition")
-	}
-	if sm.CurrentState != s2 {
-		t.Error("Expected current state to remain s2")
-	}
+	assert.False(t, transitioned, "NextState should return false for an invalid transition")
+	assert.Equal(t, stateA, stateManager.GetCurrentState(), "Current state should remain the same if the transition is invalid")
 }
 
-// TestNewStateManager ensures that the state manager initializes with the correct initial state.
-func TestNewStateManager(t *testing.T) {
-	s1 := &State{}
-	sm := NewStateManager(s1)
+func TestStateManager_GetCurrentState(t *testing.T) {
+	state := smgr.NewState(nil, nil, nil)
+	stateManager := smgr.NewStateManager(state)
 
-	if sm.CurrentState != s1 {
-		t.Error("Expected initial state to be s1")
-	}
-}
-
-// TestOnEnter verifies that the OnEnter function is called when transitioning to a new state.
-func TestOnEnter(t *testing.T) {
-	// Flag to check if OnEnter was called
-	onEnterCalled := false
-
-	// Define the initial state with no OnEnter function
-	initialState := &State{
-		Update: func() {
-			// Initial state does nothing on Update
-		},
-	}
-
-	// Define the target state with an OnEnter function that sets the flag to true
-	targetState := &State{
-		OnEnter: func() {
-			onEnterCalled = true
-		},
-	}
-
-	// Set up the possible transition from initialState to targetState
-	initialState.AddNextState(targetState)
-
-	// Initialize the StateManager with the initial state
-	sm := NewStateManager(initialState)
-
-	// Transition to targetState
-	if !sm.NextState(targetState) {
-		t.Error("Expected NextState to return true for valid transition")
-	}
-
-	// Check if OnEnter was called
-	if !onEnterCalled {
-		t.Error("Expected OnEnter to be called when transitioning to targetState")
-	}
-}
-
-// TestOnExit verifies that the OnExit function is called when transitioning to a new state.
-func TestOnExit(t *testing.T) {
-	// Flag to check if OnEnter was called
-	onExitCalled := false
-
-	// Define the initial state with OnExit function taht sets the flag 
-	initialState := &State{
-		Update: func() {
-			// Initial state does nothing on Update
-		},
-		OnExit: func() {
-			onExitCalled = true
-		},
-	}
-
-	targetState := &State{}
-
-	// Set up the possible transition from initialState to targetState
-	initialState.AddNextState(targetState)
-
-	// Initialize the StateManager with the initial state
-	sm := NewStateManager(initialState)
-
-	// Transition to targetState
-	if !sm.NextState(targetState) {
-		t.Error("Expected NextState to return true for valid transition")
-	}
-
-	// Check if OnExit was called
-	if !onExitCalled {
-		t.Error("Expected OnExit to be called when transitioning to targetState")
-	}
-}
-
-func TestStateDataLifecycle(t *testing.T) {
-	// Create initial and target states
-	initialState := NewState()
-	targetState := NewState()
-
-	// Define a data key and value to be stored
-	const key = "testKey"
-	const value = "testValue"
-
-	// Set up OnEnter for initialState to initialize Data
-	initialState.OnEnter = func() {
-		initialState.Data[key] = value
-	}
-
-	// Define Update for initialState to check if Data contains expected value
-	dataCheckedInUpdate := false
-	initialState.Update = func() {
-		if initialState.Data[key] == value {
-			dataCheckedInUpdate = true
-		}
-	}
-
-	// Define OnExit for initialState to check if Data still contains the value
-	dataCheckedInExit := false
-	initialState.OnExit = func() {
-		if initialState.Data[key] == value {
-			dataCheckedInExit = true
-		}
-	}
-
-	// Set up state transition
-	initialState.AddNextState(targetState)
-
-	// Initialize the StateManager with initialState
-	sm := NewStateManager(initialState)
-
-	// Call OnEnter by transitioning to the initial state
-	sm.CurrentState.OnEnter()
-
-	// Ensure that the data is correctly initialized in OnEnter
-	if initialState.Data[key] != value {
-		t.Errorf("Expected Data[%s] to be %s in OnEnter, got %v", key, value, initialState.Data[key])
-	}
-
-	// Call Update and verify that Data is accessible
-	sm.Update()
-	if !dataCheckedInUpdate {
-		t.Error("Expected Data to be accessible in Update")
-	}
-
-	// Transition to targetState, which triggers OnExit
-	if !sm.NextState(targetState) {
-		t.Error("Expected NextState to succeed for a valid transition")
-	}
-
-	// Verify that Data was accessible in OnExit
-	if !dataCheckedInExit {
-		t.Error("Expected Data to be accessible in OnExit")
-	}
-}
-
-func TestPreviousStateDataAccess(t *testing.T) {
-	// Create initial and target states
-	initialState := NewState()
-	targetState := NewState()
-
-	// Define a data key and value to be stored in the initial state
-	const key = "testKey"
-	const value = "testValue"
-
-	// Set up OnEnter for the initial state to initialize Data
-	initialState.OnEnter = func() {
-		initialState.Data[key] = value
-	}
-
-	// Set up OnEnter for the target state to check access to previous state's Data
-	dataAccessibleInTargetState := false
-	targetState.OnEnter = func() {
-		if targetState.PreviousState != nil && targetState.PreviousState.Data[key] == value {
-			dataAccessibleInTargetState = true
-		}
-	}
-
-	// Set up a transition from initialState to targetState
-	initialState.AddNextState(targetState)
-
-	// Initialize the StateManager with initialState
-	sm := NewStateManager(initialState)
-
-	// Trigger OnEnter for initialState
-	sm.CurrentState.OnEnter()
-
-	// Transition to targetState
-	if !sm.NextState(targetState) {
-		t.Error("Expected NextState to succeed for a valid transition")
-	}
-
-	// Verify that the target state has access to the previous state's Data
-	if !dataAccessibleInTargetState {
-		t.Error("Expected target state to have access to previous state's Data")
-	}
+	assert.Equal(t, state, stateManager.GetCurrentState(), "GetCurrentState should return the current state")
 }
